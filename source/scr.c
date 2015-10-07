@@ -1,6 +1,8 @@
 #include <3ds.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <dirent.h>
 
 #include "scr.h"
 #include "lodepng.h"
@@ -8,20 +10,32 @@
 #define SCR_CHUNK_SIZE 0x47000
 #define SCR_CHUNK_ALIGNMENT 0x1000 // should really be SCR_CHUNK_SIZE but cant hurt to be flexible i guess
 #define SCR_CHUNK_MAGIC 0x52435300
+#define SCR_FILENAME "scr_"
+#define SCR_PATH "sdmc:/screenshots"
+
+static const char* scrTypes[] = {"TOP_LEFT", "TOP_RIGHT", "BOTTOM"};
 
 FILE* scrFile = NULL;
+int scrFileNo = -1;
 int scrFileSize = 0;
 u8* scrBuffer = NULL;
+int scrId = -1;
+bool scrIdType[3] = {true, true, true};
 
 Result scrInit()
 {
 	scrFile = fopen("sdmc:/screenshots_raw.bin", "rb+");
 	if(!scrFile) return -1;
 
+	scrFileNo = fileno(scrFile);
+	mkdir(SCR_PATH, 777);
+
 	fseek(scrFile, 0, SEEK_END);
 	scrFileSize = ftell(scrFile);
 
 	scrBuffer = linearAlloc(0x46500);
+
+	scrId = -1;
 
 	return 0;
 }
@@ -31,6 +45,58 @@ Result scrExit()
 	if(scrFile) fclose(scrFile);
 
 	if(scrBuffer) linearFree(scrBuffer);
+
+	return 0;
+}
+
+Result scrGetInitialId(int* id)
+{
+	if(!id) return -1;
+	
+	DIR* dir = opendir(SCR_PATH);
+	if(!dir) return -2;
+
+	struct dirent* entry;
+
+	*id = 0;
+
+	while((entry = readdir(dir)))
+	{
+		char* name = entry->d_name;
+
+		if(!memcmp(name, SCR_FILENAME, sizeof(SCR_FILENAME) - 1))
+		{
+			// prefix is right, read id
+			int i = sizeof(SCR_FILENAME) - 1, cur_id = 0;
+			unsigned char val;
+			while((val = (name[i++] - '0')) && val < 10) cur_id = cur_id * 10 + val;
+			if(cur_id > *id) *id = cur_id;
+		}
+	}
+
+	closedir(dir);
+
+	return 0;
+}
+
+Result scrGetId(scr_t type, int* id)
+{
+	if(!id) return -1;
+	
+	Result ret = 0;
+	if(scrId < 0) ret = scrGetInitialId(&scrId);
+	if(ret)return ret;
+
+	if(scrIdType[type])
+	{
+		scrIdType[SCR_TOP_LEFT] = false;
+		scrIdType[SCR_TOP_RIGHT] = false;
+		scrIdType[SCR_BOTTOM] = false;
+		scrId++;
+	}
+
+	scrIdType[type] = true;
+	*id = scrId;
 
 	return 0;
 }
@@ -142,7 +208,14 @@ Result scrExport(scr_t type, u8* buffer)
 {
 	if(!buffer)return -1;
 
-	Result ret = lodepng_encode24_file("test.png", buffer, (type == SCR_BOTTOM) ? 320 : 400, 240);
+	int id = -2;
+
+	scrGetId(type, &id);
+
+	static char filename[256];
+	sprintf(filename, SCR_PATH "/" SCR_FILENAME "%d_%s.png", id, scrTypes[type]);
+
+	Result ret = lodepng_encode24_file(filename, buffer, (type == SCR_BOTTOM) ? 320 : 400, 240);
 	if(ret) return ret;
 
 	return 0;
@@ -162,6 +235,8 @@ Result scrPop()
 
 	ret = scrExport(type, scrBuffer);
 	if(ret) return ret;
+
+	ftruncate(scrFileNo, offset);
 
 	return 0;
 }
