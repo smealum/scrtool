@@ -127,7 +127,7 @@ Result scrFindLast(int* offset)
 
 // buffer should be 0x46500, 0x4 aligned, on linear heap ideally
 // offset < 0 means we're already there
-Result scrExtract(int offset, u8* buffer, scr_t* _type)
+Result scrExtract(int offset, u8* buffer, scr_t* _type, bool display)
 {
 	Result ret;
 	if(offset >= 0)
@@ -155,7 +155,7 @@ Result scrExtract(int offset, u8* buffer, scr_t* _type)
 	int height = (type == SCR_BOTTOM) ? 320 : 400;
 	int pixels = height * 240;
 	
-	u8* tmp = malloc(pixels * 3);
+	u8* tmp = linearAlloc(pixels * 3);
 	if(!tmp) return -4;
 
 	if(buffer)
@@ -185,6 +185,21 @@ Result scrExtract(int offset, u8* buffer, scr_t* _type)
 		}
 	}
 
+	if(display)
+	{
+		u8* framebuffer = gfxGetFramebuffer(GFX_TOP, GFX_LEFT, NULL, NULL);
+		
+		// GX_SetMemoryFill(NULL, (u32*)framebuffer, 0x000000, (u32*)&framebuffer[0x46500], 0x201, 0, 0, 0, 0);
+		GSPGPU_FlushDataCache(NULL, tmp, 0x46500);
+		
+		if(type != SCR_BOTTOM) GX_SetTextureCopy(NULL, (u32*)tmp, 0x00000000, (u32*)framebuffer, 0x00000000, 0x46500, 0x8);
+		else GX_SetTextureCopy(NULL, (u32*)tmp, 0x00000000, (u32*)&framebuffer[40*240*3], 0x00000000, 320*240*3, 0x8);
+		
+		svcSleepThread(100*1000*1000);
+		gfxSwapBuffers();
+		gfxFlushBuffers();
+	}
+
 	int i, j;
 	for(i=0; i<240; i++)
 	{
@@ -199,7 +214,7 @@ Result scrExtract(int offset, u8* buffer, scr_t* _type)
 		}
 	}
 
-	free(tmp);
+	linearFree(tmp);
 
 	return 0;
 }
@@ -230,7 +245,7 @@ Result scrPop()
 	ret = scrFindLast(&offset);
 	if(ret) return ret;
 
-	ret = scrExtract(offset, scrBuffer, &type);
+	ret = scrExtract(offset, scrBuffer, &type, true);
 	if(ret) return ret;
 
 	ret = scrExport(type, scrBuffer);

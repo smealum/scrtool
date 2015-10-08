@@ -3,6 +3,13 @@
 
 #include "scr.h"
 
+typedef enum
+{
+	STATE_NONE,
+	STATE_WORKING,
+	STATE_DONE,
+}state_t;
+
 int main(int argc, char **argv)
 {
 	gfxInitDefault();
@@ -10,6 +17,10 @@ int main(int argc, char **argv)
 	consoleInit(GFX_BOTTOM, NULL);
 
 	scrInit();
+
+	state_t state = STATE_NONE;
+
+	int total = 0;
 
 	// Main loop
 	while (aptMainLoop())
@@ -20,19 +31,49 @@ int main(int argc, char **argv)
 		//hidKeysDown returns information about which buttons have been just pressed (and they weren't in the previous frame)
 		u32 kDown = hidKeysDown();
 
-		if (kDown & KEY_A)
+		printf("\x1b[0;0H");
+		printf("----------------------\n");
+		printf("|     scrtool 0.1    |\n");
+		printf("----------------------\n");
+		printf("                      \n");
+		printf("                      \n");
+
+		switch(state)
 		{
-			Result ret = scrPop();
-			printf("popped : %d\n", (int)ret);
+			case STATE_NONE:
+				{
+					printf("  Press A to extract screenshots       \n");
+					printf("  Press START to exit to menu          \n");
+					printf("                                       \n");
+					if(kDown & KEY_A) state = STATE_WORKING;
+				}
+				break;
+			case STATE_WORKING:
+				{
+					printf("  Extracting screenshots...            \n");
+					printf("  Hold B to cancel extraction          \n");
+					printf("      %d                               \n", total);
+					
+					Result ret = scrPop();
+					
+					if(ret) state = STATE_DONE;
+					else total++;
+					
+					if(kDown & KEY_B) state = STATE_NONE;
+				}
+				break;
+			case STATE_DONE:
+				{
+					printf("  Done !                               \n");
+					printf("  Press START to exit to menu          \n");
+					printf("                                       \n");
+				}
+				break;
+
 		}
 
-		if (kDown & KEY_START) break; // break in order to return to hbmenu
+		if (kDown & KEY_START) break;
 
-		// Flush and swap framebuffers
-		gfxFlushBuffers();
-		gfxSwapBuffers();
-
-		//Wait for VBlank
 		gspWaitForVBlank();
 	}
 
