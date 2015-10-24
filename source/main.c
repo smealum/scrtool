@@ -16,6 +16,8 @@ int main(int argc, char **argv)
 
 	consoleInit(GFX_BOTTOM, NULL);
 
+	osSetSpeedupEnable(true);
+
 	scrInit();
 
 	state_t state = STATE_NONE;
