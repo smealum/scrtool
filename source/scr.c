@@ -172,7 +172,7 @@ Result scrExtract(int offset, u8* buffer, scr_t* _type, bool display)
 					int i;
 					for(i=0; i<pixels; i++)
 					{
-						u16 val = ((u16*)tmp)[i];
+						u16 val = ((u16*)tmp)[pixels / 2 + i];
 						tmp[i * 3 + 0] = (val & 0x1F) << 3;
 						tmp[i * 3 + 1] = ((val >> 5) & 0x3F) << 2;
 						tmp[i * 3 + 2] = ((val >> 11) & 0x1F) << 3;
@@ -181,6 +181,7 @@ Result scrExtract(int offset, u8* buffer, scr_t* _type, bool display)
 				break;
 			default:
 				// never seen those used in the wild... will implement if they are
+				printf("unknown format : %d\n", format);
 				break;
 		}
 	}
