@@ -8,6 +8,7 @@ typedef enum
 	STATE_NONE,
 	STATE_WORKING,
 	STATE_DONE,
+	STATE_OPEN_FAILED,
 }state_t;
 
 int main(int argc, char **argv)
@@ -18,9 +19,8 @@ int main(int argc, char **argv)
 
 	osSetSpeedupEnable(true);
 
-	scrInit();
-
 	state_t state = STATE_NONE;
+	if(scrInit()) state = STATE_OPEN_FAILED;
 
 	int total = 0;
 
@@ -67,6 +67,13 @@ int main(int argc, char **argv)
 			case STATE_DONE:
 				{
 					printf("  Done !                               \n");
+					printf("  Press START to exit to menu          \n");
+					printf("                                       \n");
+				}
+				break;
+			case STATE_OPEN_FAILED:
+				{
+					printf("  Could not open screenshot file !     \n");
 					printf("  Press START to exit to menu          \n");
 					printf("                                       \n");
 				}
