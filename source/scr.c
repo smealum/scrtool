@@ -144,7 +144,7 @@ Result scrExtract(int offset, u8* buffer, scr_t* _type, bool display)
 	if(type > SCR_BOTTOM || type < SCR_TOP_LEFT)return -3;
 	if(_type) *_type = type;
 
-	GSP_FramebufferFormats format;
+	GSPGPU_FramebufferFormats format;
 	int format_offset = (type == SCR_BOTTOM) ? 0x14 : 0x4;
 	fseek(scrFile, format_offset, SEEK_CUR);
 	fread(&format, 1, 1, scrFile);
@@ -191,10 +191,10 @@ Result scrExtract(int offset, u8* buffer, scr_t* _type, bool display)
 		u8* framebuffer = gfxGetFramebuffer(GFX_TOP, GFX_LEFT, NULL, NULL);
 		
 		// GX_SetMemoryFill(NULL, (u32*)framebuffer, 0x000000, (u32*)&framebuffer[0x46500], 0x201, 0, 0, 0, 0);
-		GSPGPU_FlushDataCache(NULL, tmp, 0x46500);
+		GSPGPU_FlushDataCache(tmp, 0x46500);
 		
-		if(type != SCR_BOTTOM) GX_SetTextureCopy(NULL, (u32*)tmp, 0x00000000, (u32*)framebuffer, 0x00000000, 0x46500, 0x8);
-		else GX_SetTextureCopy(NULL, (u32*)tmp, 0x00000000, (u32*)&framebuffer[40*240*3], 0x00000000, 320*240*3, 0x8);
+		if(type != SCR_BOTTOM) GX_TextureCopy((u32*)tmp, 0x00000000, (u32*)framebuffer, 0x00000000, 0x46500, 0x8);
+		else GX_TextureCopy((u32*)tmp, 0x00000000, (u32*)&framebuffer[40*240*3], 0x00000000, 320*240*3, 0x8);
 		
 		svcSleepThread(100*1000*1000);
 		gfxSwapBuffers();
