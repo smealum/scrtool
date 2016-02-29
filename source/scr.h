@@ -11,5 +11,6 @@ typedef enum
 Result scrInit();
 Result scrExit();
 Result scrPop();
+Result scrCombinePop();
 
 #endif
