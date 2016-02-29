@@ -21,6 +21,7 @@ int scrFileSize = 0;
 u8* scrBuffer = NULL;
 int scrId = -1;
 bool scrIdType[3] = {true, true, true};
+bool scrCombine = false;
 
 Result scrInit()
 {
@@ -33,7 +34,7 @@ Result scrInit()
 	fseek(scrFile, 0, SEEK_END);
 	scrFileSize = ftell(scrFile);
 
-	scrBuffer = linearAlloc(0x46500);
+	scrBuffer = linearAlloc(0xBB800);
 
 	scrId = -1;
 
@@ -206,9 +207,14 @@ Result scrExtract(int offset, u8* buffer, scr_t* _type, bool display)
 	{
 		for(j=0; j<height; j++)
 		{
-			int offset_0 = (i + j * 240) * 3;
-			int offset_1 = (j + (239 - i) * height) * 3;
 
+			int offset_0 = (i + j * 240) * 3;
+			int offset_1 = (j + (239 - i) * height) * 4;
+
+			if (scrCombine && height == 320)
+				offset_1 += (40 + (239 - i) * 80) * 4;
+
+			buffer[offset_1 + 3] = 255;
 			buffer[offset_1 + 2] = tmp[offset_0 + 0];
 			buffer[offset_1 + 1] = tmp[offset_0 + 1];
 			buffer[offset_1 + 0] = tmp[offset_0 + 2];
@@ -229,9 +235,19 @@ Result scrExport(scr_t type, u8* buffer)
 	scrGetId(type, &id);
 
 	static char filename[256];
-	sprintf(filename, SCR_PATH "/" SCR_FILENAME "%d_%s.png", id, scrTypes[type]);
+	Result ret;
 
-	Result ret = lodepng_encode24_file(filename, buffer, (type == SCR_BOTTOM) ? 320 : 400, 240);
+	if (scrCombine)
+	{
+		sprintf(filename, SCR_PATH "/" SCR_FILENAME "%d_COMBINED.png", id);
+		ret = lodepng_encode32_file(filename, buffer, 400, 480);
+	}
+	else
+	{
+		sprintf(filename, SCR_PATH "/" SCR_FILENAME "%d_%s.png", id, scrTypes[type]);
+		ret = lodepng_encode32_file(filename, buffer, (type == SCR_BOTTOM) ? 320 : 400, 240);
+	}
+
 	if(ret) return ret;
 
 	return 0;
@@ -243,9 +259,44 @@ Result scrPop()
 	int offset;
 	scr_t type;
 
+	scrCombine = false;
+
 	ret = scrFindLast(&offset);
 	if(ret) return ret;
 
+	ret = scrExtract(offset, scrBuffer, &type, true);
+	if(ret) return ret;
+
+	ret = scrExport(type, scrBuffer);
+	if(ret) return ret;
+
+	ftruncate(scrFileNo, offset);
+
+	return 0;
+}
+
+Result scrCombinePop()
+{
+	Result ret;
+	int offset;
+	scr_t type;
+
+	scrCombine = true;
+	memset(scrBuffer, 0, 0xBB800);
+
+	ret = scrFindLast(&offset);
+	if(ret) return ret;
+	ret = scrExtract(offset, scrBuffer+(400*240*4), &type, true);
+	if(ret) return ret;
+	ftruncate(scrFileNo, offset);
+
+	// Skip over the right screen image
+	ret = scrFindLast(&offset);
+	if(ret) return ret;
+	ftruncate(scrFileNo, offset);
+
+	ret = scrFindLast(&offset);
+	if(ret) return ret;
 	ret = scrExtract(offset, scrBuffer, &type, true);
 	if(ret) return ret;
 

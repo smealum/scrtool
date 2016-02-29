@@ -21,6 +21,7 @@ int main(int argc, char **argv)
 
 	state_t state = STATE_NONE;
 	if(scrInit()) state = STATE_OPEN_FAILED;
+	bool combine;
 
 	int total = 0;
 
@@ -45,9 +46,19 @@ int main(int argc, char **argv)
 			case STATE_NONE:
 				{
 					printf("  Press A to extract screenshots       \n");
+					printf("  Press X to extract combined screens  \n");
 					printf("  Press START to exit to menu          \n");
 					printf("                                       \n");
-					if(kDown & KEY_A) state = STATE_WORKING;
+					if(kDown & KEY_A)
+					{
+						state = STATE_WORKING;
+						combine = false;
+					}
+					else if(kDown & KEY_X)
+					{
+						state = STATE_WORKING;
+						combine = true;
+					}
 				}
 				break;
 			case STATE_WORKING:
@@ -56,7 +67,7 @@ int main(int argc, char **argv)
 					printf("  Hold B to cancel extraction          \n");
 					printf("      %d                               \n", total);
 					
-					Result ret = scrPop();
+					Result ret = combine ? scrCombinePop() : scrPop();
 					
 					if(ret) state = STATE_DONE;
 					else total++;
